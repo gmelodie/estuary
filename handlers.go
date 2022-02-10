@@ -41,7 +41,6 @@ import (
 	ipld "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log/v2"
 	merkledag "github.com/ipfs/go-merkledag"
-	unixfs "github.com/ipfs/go-unixfs"
 	uio "github.com/ipfs/go-unixfs/io"
 	car "github.com/ipld/go-car"
 	"github.com/labstack/echo/v4"
@@ -4208,8 +4207,9 @@ func (s *Server) handleColfsListDir(c echo.Context, u *User) error {
 		if err != nil {
 			return err
 		}
+		fmt.Printf("RELP: %+v\n", relp)
 
-		// Build a new local DAGService to query for the CID if our ref and see if it's a directory
+		// Build a new local DAGService to query for the CID of our ref and see if it's a directory
 		bserv := blockservice.New(s.Node.Blockstore, offline.Exchange(s.Node.Blockstore))
 		dserv := merkledag.NewDAGService(bserv)
 		ctx := c.Request().Context()
@@ -4218,14 +4218,46 @@ func (s *Server) handleColfsListDir(c echo.Context, u *User) error {
 			return err
 		}
 
-		// if the relative path requires pathing up, its definitely not in this dir
+		// if the relative path requires pathing up, it's either a CID-included dir, or it's a file that's not in this dir
 		if strings.HasPrefix(relp, "..") {
+			continue
+		}
+
+		// if the relative path is ".", then it's either a CID-included dir or user is trying to list a file
+		if strings.HasPrefix(relp, ".") {
+			continue
+		}
+
+		if strings.HasPrefix(relp, ".") {
+			links, err := dserv.GetLinks(ctx, r.Cid.CID)
+			if err != nil {
+				return err
+			}
+			for _, lnk := range links {
+				// TODO: maybe we can extract unixfs directly from lnk (no lnkNode in the middle)
+				lnkNode, err := dserv.Get(ctx, lnk.Cid)
+				if err != nil {
+					return err
+				}
+
+				lnkFSNode, err := util.TryExtractFSNode(lnkNode)
+				if err != nil {
+					return err
+				}
+				out = append(out, collectionListResponse{
+					Name: filepath.Base(lnk.Name),
+					Dir:  lnkFSNode.IsDir(),
+					Size: int64(lnk.Size),
+					// ContID: r.ContID, // TODO: since these CIDs are not added to the database, they don't have a ContID
+					Cid: &util.DbCID{CID: lnk.Cid},
+				})
+			}
 			continue
 		}
 
 		// TODO: maybe find a way to reuse s.Node or s.gwayHandler.dserv
 		// Need to transform node into a unixfs node to check if it's dir
-		fsNode, err := unixfs.ExtractFSNode(nd)
+		fsNode, err := util.TryExtractFSNode(nd)
 		if err != nil {
 			return err
 		}

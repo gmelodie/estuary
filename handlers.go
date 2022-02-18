@@ -4250,7 +4250,7 @@ func sanitizePath(p string) (string, error) {
 	}
 
 	if p[0] != '/' {
-		return "", fmt.Errorf("all paths must be absolute")
+		return "", fmt.Errorf("paths must start with /")
 	}
 
 	// TODO: prevent use of special weird characters

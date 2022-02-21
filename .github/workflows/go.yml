@@ -37,3 +37,5 @@ jobs:
 
     - name: Test
       run: go test -v ./...
+      env:
+          ESTUARY_TOKEN: $ESTUARY_TOKEN

@@ -14,6 +14,7 @@ jobs:
     uses: ./.github/workflows/build.yml
 
   stash_binaries:
+    needs: build_binaries
     strategy:
       matrix:
         include:
@@ -40,7 +41,6 @@ jobs:
             benchest-bin: ${{ needs.build_binaries.outputs.benchest_macos_amd64 }}
     steps:
     - name: Prepare build artifact for stashing
-      needs: build_binaries
       run: |
         mkdir release
         mv ./${{ matrix.estuary-bin }} ./${{ matrix.shuttle-bin }} ./${{ matrix.benchest-bin }} ./${{ matrix.bsget-bin }} ./release

@@ -2,58 +2,14 @@ name: Build
 
 on:
   workflow_call:
-    outputs:
-      ## LINUX AMD64 BINARIES
-      estuary_linux_amd64:
-        description: "Estuary binary for linux amd64"
-        value: ${{ jobs.build_linux_amd64.outputs.estuary }}
-      shuttle_linux_amd64:
-        description: "Shuttle binary for linux amd64"
-        value: ${{ jobs.build_linux_amd64.outputs.estuary-shuttle }}
-      benchest_linux_amd64:
-        description: "Benchest binary for linux amd64"
-        value: ${{ jobs.build_linux_amd64.outputs.benchest }}
-      bsget_linux_amd64:
-        description: "Bsget binary for linux amd64"
-        value: ${{ jobs.build_linux_amd64.outputs.bsget }}
-
-      ## LINUX ARM BINARIES
-      estuary_linux_arm64:
-        description: "Estuary binary for linux arm64"
-        value: ${{ jobs.build_linux_arm64.outputs.estuary }}
-      shuttle_linux_arm64:
-        description: "Shuttle binary for linux arm64"
-        value: ${{ jobs.build_linux_arm64.outputs.estuary-shuttle }}
-      benchest_linux_arm64:
-        description: "Benchest binary for linux arm64"
-        value: ${{ jobs.build_linux_arm64.outputs.benchest }}
-      bsget_linux_arm64:
-        description: "Bsget binary for linux arm64"
-        value: ${{ jobs.build_linux_arm64.outputs.bsget }}
-
-      ## MACOS AMD64 BINARIES
-      estuary_macos_amd64:
-        description: "Estuary binary for macos amd64"
-        value: ${{ jobs.build_macos_amd64.outputs.estuary }}
-      shuttle_macos_amd64:
-        description: "Shuttle binary for macos amd64"
-        value: ${{ jobs.build_macos_amd64.outputs.estuary-shuttle }}
-      benchest_macos_amd64:
-        description: "Benchest binary for macos amd64"
-        value: ${{ jobs.build_macos_amd64.outputs.benchest }}
-      bsget_macos_amd64:
-        description: "Bsget binary for macos amd64"
-        value: ${{ jobs.build_macos_amd64.outputs.bsget }}
-
+    secrets:
+      DOCKERHUB_ORG:
+        description: 'Dockerhub org to get image from'
+        required: true
 
 jobs:
   build_linux_amd64:
     # Map the job outputs to step outputs
-    outputs:
-      estuary: "estuary"
-      shuttle: "estuary-shuttle"
-      benchest: "benchest"
-      bsget: "bsget"
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -69,15 +25,21 @@ jobs:
       with:
         submodules: true
     - name: Build binary for ${{ matrix.version }}
+      env:
+        DOCKERHUB_ORG: ${{ secrets.DOCKERHUB_ORG }}
       run: |
-        docker run --rm -v "$PWD":/usr/est/build -w /usr/est/build --platform=${{ matrix.version }} ${{ secrets.DOCKERHUB_ORG }}/estuary-base:latest /bin/sh -c "make"
+        docker run --rm -v "$PWD":/usr/est/build -w /usr/est/build --platform=${{ matrix.version }} $DOCKERHUB_ORG/estuary-base:latest /bin/sh -c "make"
+    - name: Prepare build artifact for stashing
+      run: |
+        mkdir binaries
+        mv ./estuary ./estuary-shuttle ./benchest ./bsget ./binaries
+    - name: Upload binaries to be used by next workflow
+      uses: actions/upload-artifact@v1
+      with:
+        name: estuary-${{ matrix.OS }}-${{ matrix.ARCH }}-${{ github.sha }}
+        path: ./binaries
 
   build_linux_arm64:
-    outputs:
-      estuary: "estuary"
-      shuttle: "estuary-shuttle"
-      benchest: "benchest"
-      bsget: "bsget"
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -99,15 +61,21 @@ jobs:
         platforms: linux/arm64
 
     - name: Build binary for ${{ matrix.version }}
+      env:
+        DOCKERHUB_ORG: ${{ secrets.DOCKERHUB_ORG }}
       run: |
-        docker run --rm -v "$PWD":/usr/est/build -w /usr/est/build --platform=${{ matrix.version }} ${{ secrets.DOCKERHUB_ORG }}/estuary-base:linux-arm64" /bin/sh -c "cp /build/* extern/filecoin-ffi/ && touch extern/filecoin-ffi/.install-filcrypto && make"
+        docker run --rm -v "$PWD":/usr/est/build -w /usr/est/build --platform=${{ matrix.version }} $DOCKERHUB_ORG/estuary-base:linux-arm64 /bin/sh -c "cp /build/* extern/filecoin-ffi/ && touch extern/filecoin-ffi/.install-filcrypto && make"
+    - name: Prepare build artifact for stashing
+      run: |
+        mkdir binaries
+        mv ./estuary ./estuary-shuttle ./benchest ./bsget ./binaries
+    - name: Upload binaries to be used by next workflow
+      uses: actions/upload-artifact@v1
+      with:
+        name: estuary-${{ matrix.OS }}-${{ matrix.ARCH }}-${{ github.sha }}
+        path: ./binaries
 
   build_macos_amd64:
-    outputs:
-      estuary: "estuary"
-      shuttle: "estuary-shuttle"
-      benchest: "benchest"
-      bsget: "bsget"
     runs-on: macos-latest
     strategy:
       matrix:
@@ -133,3 +101,12 @@ jobs:
       run: |
         export PATH=/System/Volumes/Data/Users/runner/go/bin:$PATH
         make
+    - name: Prepare build artifact for stashing
+      run: |
+        mkdir binaries
+        mv ./estuary ./estuary-shuttle ./benchest ./bsget ./binaries
+    - name: Upload binaries to be used by next workflow
+      uses: actions/upload-artifact@v1
+      with:
+        name: estuary-${{ matrix.OS }}-${{ matrix.ARCH }}-${{ github.sha }}
+        path: ./binaries

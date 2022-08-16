@@ -1,7 +1,7 @@
 name: Release
 
 on:
-  push:
+  [ push, pull_request ]
     # run only against tags
     # tags:
     #   - '*'

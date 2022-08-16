@@ -9,7 +9,7 @@ on:
         value: ${{ jobs.build_linux_amd64.outputs.estuary }}
       shuttle_linux_amd64:
         description: "Shuttle binary for linux amd64"
-        value: ${{ jobs.build_linux_amd64.outputs.shuttle }}
+        value: ${{ jobs.build_linux_amd64.outputs.estuary-shuttle }}
       benchest_linux_amd64:
         description: "Benchest binary for linux amd64"
         value: ${{ jobs.build_linux_amd64.outputs.benchest }}
@@ -23,7 +23,7 @@ on:
         value: ${{ jobs.build_linux_arm64.outputs.estuary }}
       shuttle_linux_arm64:
         description: "Shuttle binary for linux arm64"
-        value: ${{ jobs.build_linux_arm64.outputs.shuttle }}
+        value: ${{ jobs.build_linux_arm64.outputs.estuary-shuttle }}
       benchest_linux_arm64:
         description: "Benchest binary for linux arm64"
         value: ${{ jobs.build_linux_arm64.outputs.benchest }}
@@ -37,7 +37,7 @@ on:
         value: ${{ jobs.build_macos_amd64.outputs.estuary }}
       shuttle_macos_amd64:
         description: "Shuttle binary for macos amd64"
-        value: ${{ jobs.build_macos_amd64.outputs.shuttle }}
+        value: ${{ jobs.build_macos_amd64.outputs.estuary-shuttle }}
       benchest_macos_amd64:
         description: "Benchest binary for macos amd64"
         value: ${{ jobs.build_macos_amd64.outputs.benchest }}
@@ -46,13 +46,12 @@ on:
         value: ${{ jobs.build_macos_amd64.outputs.bsget }}
 
 
-
 jobs:
   build_linux_amd64:
     # Map the job outputs to step outputs
     outputs:
       estuary: "estuary"
-      shuttle: "shuttle"
+      shuttle: "estuary-shuttle"
       benchest: "benchest"
       bsget: "bsget"
     runs-on: ubuntu-20.04
@@ -76,7 +75,7 @@ jobs:
   build_linux_arm64:
     outputs:
       estuary: "estuary"
-      shuttle: "shuttle"
+      shuttle: "estuary-shuttle"
       benchest: "benchest"
       bsget: "bsget"
     runs-on: ubuntu-20.04
@@ -101,12 +100,12 @@ jobs:
 
     - name: Build binary for ${{ matrix.version }}
       run: |
-        docker run --rm -v "$PWD":/usr/est/build -w /usr/est/build --platform=${{ matrix.version }} ${{ secrets.DOCKERHUB_ORG }}/estuary-base:linux-arm64 /bin/sh -c "cp /build/* extern/filecoin-ffi/ && touch extern/filecoin-ffi/.install-filcrypto && make"
+        docker run --rm -v "$PWD":/usr/est/build -w /usr/est/build --platform=${{ matrix.version }} ${{ secrets.DOCKERHUB_ORG }}/estuary-base:linux-arm64" /bin/sh -c "cp /build/* extern/filecoin-ffi/ && touch extern/filecoin-ffi/.install-filcrypto && make"
 
   build_macos_amd64:
     outputs:
       estuary: "estuary"
-      shuttle: "shuttle"
+      shuttle: "estuary-shuttle"
       benchest: "benchest"
       bsget: "bsget"
     runs-on: macos-latest

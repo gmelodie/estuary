@@ -1,7 +1,7 @@
 name: Release
 
 on:
-  [ push, pull_request ]
+  push:
     # run only against tags
     # tags:
     #   - '*'
@@ -12,7 +12,6 @@ permissions:
 jobs:
   build_binaries:
     uses: ./.github/workflows/build.yml
-
   stash_binaries:
     needs: build_binaries
     runs-on: ubuntu-20.04
@@ -51,7 +50,6 @@ jobs:
       with:
         name: estuary-${{ matrix.OS }}-${{ matrix.ARCH }}-${{ github.sha }}
         path: ./release
-
 
   # A Github release is created whenever the git reference contains a tag, starting with 'v*' (e.g. v0.4.2)
   # And the previous build jobs have been successful

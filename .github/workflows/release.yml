@@ -3,121 +3,60 @@ name: Release
 on:
   push:
     # run only against tags
-    tags:
-      - '*'
+    # tags:
+    #   - '*'
 
 permissions:
   contents: write
 
 jobs:
-  build_linux_amd64:
-    runs-on: ubuntu-20.04
+  build_binaries:
+    uses: ./.github/workflows/build.yml
+
+  stash_binaries:
     strategy:
       matrix:
-        version: ['linux/amd64']
         include:
-        # add the GO naming convention for OS ($GOOS) and architecture ($GOARCH)
-        # instead of using Linux' naming convention (version items).
           - version: linux/amd64
             OS: linux
             ARCH: amd64
-    steps:
-    - uses: actions/checkout@v1
-      with:
-        submodules: true
-    - name: Build binary for ${{ matrix.version }}
-      run: |
-        docker run --rm -v "$PWD":/usr/est/build -w /usr/est/build --platform=${{ matrix.version }} ${{ secrets.DOCKERHUB_ORG }}/estuary-base:latest /bin/sh -c "make"
-    - name: Prepare build artifact for stashing
-      run: |
-        mkdir release
-
-        mv ./estuary ./estuary-shuttle ./benchest ./bsget ./release
-    # The build artifact can be identified by the trailing sha of the git commit
-    - name: Stash the build artifact
-      uses: actions/upload-artifact@v1
-      with:
-        name: estuary-${{ matrix.OS }}-${{ matrix.ARCH }}-${{ github.sha }}
-        path: ./release
-  
-  build_linux_arm64:
-    runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        version: ['linux/arm64']
-        include:
-        # add the GO naming convention for OS ($GOOS) and architecture ($GOARCH)
-        # instead of using Linux' naming convention (version items).
+            estuary-bin: ${{ needs.build_binaries.outputs.estuary_linux_amd64 }}
+            shuttle-bin: ${{ needs.build_binaries.outputs.shuttle_linux_amd64 }}
+            bsget-bin: ${{ needs.build_binaries.outputs.bsget_linux_amd64 }}
+            benchest-bin: ${{ needs.build_binaries.outputs.benchest_linux_amd64 }}
           - version: linux/arm64
             OS: linux
             ARCH: arm64
-    steps:
-    - uses: actions/checkout@v1
-      with:
-        submodules: true
-    
-    - name: Install QEMU
-      uses: docker/setup-qemu-action@v1
-      with:
-        platforms: linux/arm64
-
-    - name: Build binary for ${{ matrix.version }}
-      run: |
-        docker run --rm -v "$PWD":/usr/est/build -w /usr/est/build --platform=${{ matrix.version }} ${{ secrets.DOCKERHUB_ORG }}/estuary-base:linux-arm64 /bin/sh -c "cp /build/* extern/filecoin-ffi/ && touch extern/filecoin-ffi/.install-filcrypto && make"
-    
-    - name: Prepare build artifact for stashing
-      run: |
-        mkdir release
-        mv ./estuary ./estuary-shuttle ./benchest ./bsget ./release
-    # The build artifact can be identified by the trailing sha of the git commit
-    - name: Stash the build artifact
-      uses: actions/upload-artifact@v1
-      with:
-        name: estuary-${{ matrix.OS }}-${{ matrix.ARCH }}-${{ github.sha }}
-        path: ./release
-  
-  build_macos_amd64:
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        version: ['darwin-amd64']
-        include:
+            estuary-bin: ${{ needs.build_binaries.outputs.estuary_linux_arm64 }}
+            shuttle-bin: ${{ needs.build_binaries.outputs.shuttle_linux_arm64 }}
+            bsget-bin: ${{ needs.build_binaries.outputs.bsget_linux_arm64 }}
+            benchest-bin: ${{ needs.build_binaries.outputs.benchest_linux_arm64 }}
           - version: darwin-amd64
             OS: darwin
             ARCH: amd64
+            estuary-bin: ${{ needs.build_binaries.outputs.estuary_macos_amd64 }}
+            shuttle-bin: ${{ needs.build_binaries.outputs.shuttle_macos_amd64 }}
+            bsget-bin: ${{ needs.build_binaries.outputs.bsget_macos_amd64 }}
+            benchest-bin: ${{ needs.build_binaries.outputs.benchest_macos_amd64 }}
     steps:
-    - name: Set up Go 1.17
-      uses: actions/setup-go@v1
-      id: go
-      with:
-        go-version: 1.17
-    - uses: actions/checkout@v1
-      with:
-        submodules: true
-    - name: Install dependencies
-      run: |
-        brew install bzr jq pkg-config rustup hwloc
-        cargo install cargo-lipo
-    - name: Build binary for macOS
-      run: |
-        export PATH=/System/Volumes/Data/Users/runner/go/bin:$PATH
-        make
     - name: Prepare build artifact for stashing
+      needs: build_binaries
       run: |
         mkdir release
-        mv ./estuary ./estuary-shuttle ./benchest ./bsget ./release
+        mv ./${{ matrix.estuary-bin }} ./${{ matrix.shuttle-bin }} ./${{ matrix.benchest-bin }} ./${{ matrix.bsget-bin }} ./release
     # The build artifact can be identified by the trailing sha of the git commit
     - name: Stash the build artifact
       uses: actions/upload-artifact@v1
       with:
         name: estuary-${{ matrix.OS }}-${{ matrix.ARCH }}-${{ github.sha }}
         path: ./release
+
 
   # A Github release is created whenever the git reference contains a tag, starting with 'v*' (e.g. v0.4.2)
   # And the previous build jobs have been successful
   create_release:
     runs-on: ubuntu-20.04
-    needs: [build_linux_amd64, build_linux_arm64, build_macos_amd64]
+    needs: stash_binaries
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
     - name: Create Release

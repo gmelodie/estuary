@@ -3,8 +3,8 @@ name: Docker
 on:
   push:
     # run only against tags
-    tags:
-      - '*'
+    # tags:
+    #   - '*'
 
 jobs:
   docker:
